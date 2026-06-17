@@ -11,3 +11,6 @@ A robust RO2RW conversion module for Android 15-17 dynamic-super devices. Automa
 Flash the release `.zip` archive via Magisk, KernelSU, or a custom recovery. 
 
 *Private source tree. For development, modify scripts in `src/`.*
+
+## Support
+PR, Issues is closed. Discussions is open. 
