@@ -14,3 +14,9 @@ Flash the release `.zip` archive via Magisk, KernelSU, or a custom recovery.
 
 ## Support
 PR, Issues is closed. Discussions is open. 
+
+## Disclaimer / Warranty
+**NO WARRANTY.** This software is provided "as is" without warranty of any kind, either expressed or implied. The author is not responsible for any damage to your device (bootloops, data loss, or hard bricks). Use at your own risk.
+
+## License
+Licensed under the [GNU General Public License v3.0](LICENSE).
