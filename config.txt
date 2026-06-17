@@ -1,0 +1,119 @@
+#####################
+# SuperForgeRW Nexus v4.4.3 F2FS-RW AutoFS safe/sload unified config
+# Android 16/17 conservative profile. Safe default: build staged super image,
+# do not write directly to /dev/block/by-name/super.
+
+# Partition growth policy.
+# RW_SIZE_MOD="MAX" divides available space by percentages below.
+# RW_SIZE_MOD="FIXED" uses RW_SIZE as MB per RW candidate.
+RW_SIZE="S=70% V=10% P=10% SE=5% OT=5%"
+RW_SIZE_MOD="MAX"
+
+# Recovery key timeout.
+REMOVE_TIMEOUT_KEY="false"
+
+# Automation mode. For interactive recovery/terminal leave false.
+AUTO_INSTALL_MODE="true"
+AUTO_CRITICAL_PROMPTS="true"
+AUTO_PROMPT_APP_REMOVAL="true"
+AUTO_STAGED_OUTPUT="sparse"   # sparse/fastboot | row/recovery
+FORCE_START="true"
+IF_VALUE_WRONG="false"
+WHAT_DO_SCRIPT="fullrw"       # fullrw | checkrw | literw
+
+#####################
+# Target filesystem policy for RW candidates.
+# auto-detect source FS per partition:
+#   - source ext4  -> TARGET_FS_FROM_EXT4 (default f2fs)
+#   - source erofs -> TARGET_FS_FROM_EROFS (default ext4; set to f2fs to force all to F2FS)
+#   - source f2fs  -> TARGET_FS_FROM_F2FS (default f2fs/raw rebuild)
+# Values: ext4 | f2fs
+TARGET_FS_FROM_EXT4="f2fs"
+TARGET_FS_FROM_EROFS="ext4"
+TARGET_FS_FROM_F2FS="f2fs"
+TARGET_FS_FROM_OTHER="ext4"
+# If true, abort when F2FS target is requested but recovery lacks make_f2fs/mkfs.f2fs. resize.f2fs is optional. v4.4.3 blocks unsafe F2FS mount-copy fallback and never emits Success when F2FS conversion failed.
+REQUIRE_F2FS_TOOLS="true"
+# F2FS cannot be safely shrunk like ext4; allocate source_data + this margin during repack.
+F2FS_IMAGE_EXTRA_MB="160"
+# auto: try sload_f2fs first, fallback to mount-copy; sload: require sload_f2fs; mountcopy: no sload, but recovery kernel must mount loop F2FS.
+F2FS_POPULATE_MODE="auto"
+F2FS_IMAGE_SIZE_POLICY="source"
+F2FS_FALLBACK_COPY_MODE="auto"
+# Safe default: false. mount-copy into a loop-mounted F2FS image caused Bad address on some recoveries and is blocked unless explicitly enabled for debugging.
+ALLOW_F2FS_MOUNTCOPY_FALLBACK="true"
+
+# AutoSafe policy:
+# - no manual menu for normal staged build
+# - no direct flash to super
+# - no DFE
+# - no OPlus reclaim by default
+# - user is asked only when deleting apps from extracted images is needed to fit super
+
+# Backups. true:sparse is the safest useful default for fastbootd rollback.
+BACKUP_ORIGINAL_SUPER="true:sparse"
+
+# EXT4 mount fallback.
+IF_EXT4_MOUNT_PROBLEM_CONTINUE="false"
+IF_NO_DATA_CONTINUE="false"
+
+#####################
+# DFE / fstab safety
+# DFE is locked by default. Unlock only if you know the encryption state and
+# accept data-loss risk. AVB/quota/inlinecrypt/wrappedkey are NOT removed by default.
+DFE_PATCH="false"
+ALLOW_DFE_PATCH="false"
+PATCH_FBE_FLAGS="true"
+PATCH_AVB_FLAGS="false"
+PATCH_STORAGE_FLAGS="false"
+SCOPED_FSTAB_PATCH="true"
+
+#####################
+# Dynamic-super safety profile
+# ALLOW_PARTITIONS are converted to ext4/RW candidates.
+# Other active-slot dynamic partitions are preserved raw in the rebuilt super image.
+ALLOW_PARTITIONS="system system_ext product vendor odm"
+DENY_PARTITIONS="boot init_boot vendor_boot vbmeta vbmeta_system vbmeta_vendor pvmfw misc metadata userdata cache modem* bluetooth* abl* xbl* aop* tz* hyp* keymaster* qupfw* uefisecapp* devcfg* dsp* *_dlkm *_firmware oplus* my_* reserve* cust*"
+
+# ColorOS/OPlus/Realme/OnePlus: preserve unsuffixed OEM dynamic partitions.
+SAFE_COLOROS_MODE="true"
+INCLUDE_UNSLOTTED_PARTITIONS="true"
+STRICT_LPDUMP_PARTITION_PARSE="true"
+AUTO_BACKUP_METADATA="true"
+
+# LiteRW is blocked automatically on Android SDK >= 36 unless this is false.
+DISABLE_LITERW_BY_DEFAULT="true"
+
+# Direct flashing is off. Recommended flow: generate image, verify backup, flash via fastbootd.
+ALLOW_DIRECT_SUPER_FLASH="false"
+ALLOW_UNSAFE_ANDROID16_DIRECT_FLASH="false"
+# Do not bypass this on Virtual A/B/ColorOS unless you have a full stock super rollback image.
+ABORT_ON_ACTIVE_SNAPSHOT="true"
+# v4.3.5: parserfix; stale/inactive lpdump COW leftovers with Update state=none are not treated as active OTA merge.
+# They are excluded from rebuilt staged super images. This fixes persistent OPlus/Realme *-cow metadata.
+DROP_STALE_COW_PARTITIONS="true"
+ALLOW_STAGED_BUILD_WITH_STALE_COW="true"
+# Never direct-write super when bootloader/vbmeta state is locked/green unless explicitly overridden.
+LOCKED_BOOTLOADER_FLASH_GUARD="true"
+ALLOW_LOCKED_BOOTLOADER_DIRECT_FLASH="false"
+CHECK_GROUP_LIMITS="true"
+PATCH_FSTAB_RW_ONLY="true"
+# Diagnostic-only mode: if snapshots/COW are active, write report and exit success without building.
+# Keep false for normal flashable ZIP behavior.
+SNAPSHOT_REPORT_ONLY="false"
+# If active Virtual A/B COW/snapshots are detected, create a read-only rollback backup and reports before stopping.
+BACKUP_BEFORE_SNAPSHOT_ABORT="true"
+SNAPSHOT_ABORT_BACKUP_MODE="sparse"
+
+#####################
+# OPlus/Realme GSI reclaim mode
+# Default OFF. When ON, matching "my_*" dynamic payload partitions are excluded
+# from the rebuilt super image to free space for GSI-like layouts.
+# It still refuses to run while active snapshot/merge is present; stale COW-only state may proceed staged.
+OPLUS_RECLAIM_MODE="false"
+RECLAIM_PARTITIONS="my_bigball my_carrier my_company my_engineering my_heytap my_preload my_product my_region my_stock"
+# my_manifest is tiny and may describe OEM payload layout; keep it unless you explicitly accept the risk.
+RECLAIM_INCLUDE_MY_MANIFEST="false"
+ALLOW_RECLAIM_WITH_SNAPSHOT="false"
+
+LP_METADATA_SIZE="65536"

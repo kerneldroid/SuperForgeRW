@@ -1,0 +1,170 @@
+#!/system/bin/sh
+
+arg1="$1"
+arg2="$2"
+arg3="$3"
+VER=4.4.3-f2fs-safe
+RSTATUS="SuperForgeRW-Nexus-A16A17-v"
+MODID="SuperForgeRW"
+MODDIR="/data/adb/modules/$MODID"
+
+n="
+"
+case $0 in
+*data*user*flash*update-binary*)
+
+    write_module_prop() {
+        echo "id=$MODID"
+        echo "name=SuperForgeRW Nexus"
+        echo "version=$RSTATUS$VER"
+        echo "versionCode=440300"
+        echo "author=LeeGarChat base; v4.4.3 F2FS-RW AutoFS safe/sload patchset"
+        echo "description=RO2RW revival for Android 16/17 dynamic-super devices. v4.4.3: AutoFS source detect erofs/ext4/f2fs, ext4->F2FS RW staged super, bundled/recovery f2fs-tools lookup, unsafe mount-copy fallback disabled, hard-fail validation. Commands: sfrw, superforgerw, RO2RW"
+    }
+    write_ro2rw_bin() {
+        echo '#!/system/bin/sh'
+        echo 'MODDIR=/data/adb/modules/SuperForgeRW'
+        echo 'chmod 755 "$MODDIR/install.sh" 2>/dev/null'
+        echo '[ -f "$MODDIR/install.sh" ] && {'
+        echo '  "$MODDIR/install.sh" "terminal" 2 "$MODDIR/install.zip" "magisk"'
+        echo '  exit $?'
+        echo '}'
+        echo 'echo "SuperForgeRW module files not found"'
+        echo 'exit 127'
+    }
+    echo -e "\n"
+    echo -e " - Unpacking tools: SuperForgeRW Nexus for Magisk $RSTATUS$VER"
+    sleep 1
+
+    rm -rf "$MODDIR"
+    rm -rf /data/adb/modules/RO2RW /data/adb/modules/RO2RWNEXT 2>/dev/null
+    mkdir -p \
+        "$MODDIR/system/bin" \
+        "$MODDIR/SuperForgeRW.files"
+
+    cp "$arg3" "$MODDIR/install.zip"
+    cp "$0" "$MODDIR/install.sh"
+
+    /data/adb/magisk/busybox unzip -o "$arg3" "*" -d "$MODDIR/SuperForgeRW.files" &>/dev/null
+
+    write_module_prop >"$MODDIR/module.prop"
+    write_ro2rw_bin >"$MODDIR/system/bin/sfrw"
+
+    cp "$MODDIR/system/bin/sfrw" "$MODDIR/system/bin/RO2RW"
+    cp "$MODDIR/system/bin/sfrw" "$MODDIR/system/bin/ro2rw"
+    cp "$MODDIR/system/bin/sfrw" "$MODDIR/system/bin/superforgerw"
+    chmod -R 755 "$MODDIR/SuperForgeRW.files"
+    chmod 755 "$MODDIR/system/bin"/*
+    echo -e "\n"
+    if [ -f /system/bin/sfrw ] && (grep -q "magisk" /system/bin/sfrw); then
+        echo -e " - Complete updating SuperForgeRW Nexus"
+        echo -e " - You can use script. \n - Open any terminal, give su \n   permission, and write sfrw or RO2RW"
+    else
+        echo -e " - Complete, please reboot your device"
+        echo -e " - After reboot, you can use script. \n - Open any terminal, give su \n   permission, and write sfrw or RO2RW"
+    fi
+    sleep 1
+    echo -e "\n"
+    echo -e " - Base author: @LeeGarChat\n - Patchset: SuperForgeRW Nexus A16/A17 v4.4.3-f2fs-safe"
+
+    exit 0
+    ;;
+esac
+
+read_main_dir(){
+
+full_path="$1"
+while true ; do 
+    full_path="$(dirname "$full_path")"
+    low_dir="${full_path%\/*}"
+    [ -z "$low_dir" ] && break
+done
+echo "$full_path"
+
+}
+
+(mountpoint -q /data) || { 
+    mount /data || {
+    umount /data
+    }
+}
+(mountpoint -q /data) && {
+    TMP_NEO=/data/local/TMP_NEO
+    TMP_IMGS=/data/local/TMP_NEO/imgs
+    NEO_LOGS=/data/media/0/NEO.LOGS
+    check_size_main_path=/data
+} || {
+    TMP_NEO=/dev/TMP_NEO
+    TMP_IMGS="$(read_main_dir "$arg3")/NEO.IMGS/imgs"
+    NEO_LOGS="$(read_main_dir "$arg3")/NEO.LOGS"
+    check_size_main_path=$(read_main_dir "$arg3")
+    #my_print "Need mount data, OTG and encrypted data not supported"
+    #exit 123
+}
+
+
+if [ -d $TMP_IMGS ]; then
+    for file in $TMP_IMGS/*; do
+        [ -d $file ] && {
+            while (mountpoint -q $file); do
+                umount -fl $file >>/dev/null
+            done
+        }
+    done
+fi
+magisk_on_system=false
+case $4 in
+    magisk) magisk_on_system=true ;;
+    *) magisk_on_system=false ;;
+esac
+
+rm -rf $TMP_NEO
+
+mkdir -pv $TMP_NEO/ &>>/dev/null
+mkdir -pv $TMP_IMGS/ &>>/dev/null
+LOG=$TMP_NEO/log.file.txt
+
+getprop &>>$LOG
+
+ls /dev/block/by-name/* /dev/block/* /dev/block/mapper/* &>>$LOG
+
+cd "$TMP_NEO"
+$magisk_on_system && {
+    cp -R "$MODDIR/SuperForgeRW.files"/* $TMP_NEO/
+} || {
+    unzip -o "$arg3" -d "$TMP_NEO" &>>$LOG || \
+    unzip -o "$arg3" &>>$LOG
+}
+cp $TMP_NEO/arm64/bootctl $TMP_NEO/arm32/
+cp $TMP_NEO/arm64/erofs $TMP_NEO/arm32/
+
+chmod -R 777 $TMP_NEO &>>$LOG
+chmod 777 $TMP_NEO/arm32/* &>>$LOG
+chmod 777 $TMP_NEO/arm32/lib/* &>>$LOG
+chmod 777 $TMP_NEO/arm64/* &>>$LOG
+chmod 777 $TMP_NEO/arm64/lib/* &>>$LOG
+
+case "$(file /system/bin/sh)" in
+    *"symbolic link"*)
+        case "$(file $(readlink /system/bin/sh))" in
+        *"32-bit "*" arm"*) arch=arm32
+        ;;
+        *"64-bit "*" arm64"*) arch=arm64
+        ;;
+        esac
+        
+    ;;
+    *"32-bit "*" arm"*) arch=arm32
+    ;;
+    *"64-bit "*" arm64"*) arch=arm64
+    ;;
+esac
+
+
+sed -i 's|VER="EXAMPLE"|VER="'$VER'"|' $TMP_NEO/src/main.sh
+sed -i 's|RSTATUS="EXAMPLE"|RSTATUS="'$RSTATUS'"|' $TMP_NEO/src/main.sh
+sed -i 's|#EXAMPLE_SH|#!'$TMP_NEO/$arch'/bash|' $TMP_NEO/install.sh
+sed -i 's|arch="EXAMPLE"|arch='$arch'|' $TMP_NEO/src/main.sh
+
+$TMP_NEO/$arch/bash $TMP_NEO/install.sh "$1" "$2" "$3" "$4" "$5"
+exit $?

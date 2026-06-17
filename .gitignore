@@ -1,0 +1,7 @@
+*.zip
+*.log
+*.bak
+tmp/
+out/
+.DS_Store
+.git/agent-checkpoints/
